@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, TextField, Modal, Chip } from '@mui/material';
+import { Container, Typography, Box, Button, TextField, Modal, Chip, Menu, MenuItem } from '@mui/material';
 import axios from 'axios';
 import { v4 as uuidv4 } from 'uuid';
+import NodeListPage from './NodeListPage';
 
 const Canvas = () => {
     const { fileId } = useParams();
@@ -28,10 +29,15 @@ const Canvas = () => {
     const [selectedNoteId, setSelectedNoteId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingIdea, setEditingIdea] = useState(null);
+    const [isNodeListModalOpen, setIsNodeListModalOpen] = useState(false);
     
     const [notes, setNotes] = useState([]);
     const [allTags, setAllTags] = useState([]);
     const [selectedTags, setSelectedTags] = useState([]);
+
+    const [anchorEl, setAnchorEl] = useState(null); // 💡 メニューのアンカー要素
+    const [userFiles, setUserFiles] = useState([]); // 💡 ユーザーのファイル一覧
+    const menuOpen = Boolean(anchorEl);
 
     useEffect(() => {
         const fetchData = async () => {
@@ -119,6 +125,47 @@ const Canvas = () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [selectedNodeId, selectedNoteId, ideas, notes, isModalOpen]);
+
+    useEffect(() => {
+
+        console.log("Ideas data:", ideas);
+        
+        // 💡 このブロック内の既存のコードを全て削除し、以下の新しいコードに置き換える
+        const canvas = document.getElementById('canvas-area');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        
+        // キャンバスのサイズをウィンドウサイズに合わせる
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // キャンバスをクリア
+
+        ctx.strokeStyle = '#555'; // 線の色
+        ctx.lineWidth = 2; // 線の太さ
+
+        // すべてのアイデアノードを走査し、関連するノードに線を引く
+        ideas.forEach(idea1 => {
+            if (idea1.relatedIdeaIds && idea1.relatedIdeaIds.length > 0) {
+                idea1.relatedIdeaIds.forEach(relatedId => {
+                    const idea2 = ideas.find(i => i.id === relatedId);
+                    if (!idea2) return;
+
+                    // 💡 DBに保存された座標情報を使用
+                    const startX = idea1.posX + 100;
+                    const startY = idea1.posY + 50;
+                    const endX = idea2.posX + 100;
+                    const endY = idea2.posY + 50;
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(startX, startY);
+                    ctx.lineTo(endX, endY);
+                    ctx.stroke();
+                });
+            }
+        });
+    }, [ideas]);
+
 
     const handleCanvasMouseDown = (e) => {
         setSelectedNodeId(null);
@@ -367,9 +414,63 @@ const Canvas = () => {
         navigate(`/prompt/${fileId}`, { state: { userId: userId, fileId: fileId } });
     };
 
+    const linkRelatedNodes = async () => {
+        try {
+            await axios.post(`http://localhost:8080/api/ideas/link-related/${fileId}`);
+            // 成功したら、ノードデータを再取得して表示を更新
+            fetchIdeas();
+            fetchNotes();
+            alert("関連付けが完了しました！");
+        } catch (err) {
+            console.error("関連ノードの紐付けに失敗しました。", err);
+            alert("関連ノードの紐付けに失敗しました。");
+        }
+    };
+
     const filteredIdeas = selectedTags.length > 0
         ? ideas.filter(idea => idea.tags && selectedTags.some(tag => idea.tags.includes(tag)))
         : ideas;
+
+        const handleMenuClick = async (event) => {
+            setAnchorEl(event.currentTarget);
+            if (userFiles.length === 0) {
+                try {
+                    const response = await axios.get(`http://localhost:8080/api/files/user/${userId}`);
+                    setUserFiles(response.data);
+                } catch (err) {
+                    console.error("ファイルの取得に失敗しました。", err);
+                }
+            }
+        };
+    
+        const handleMenuClose = () => {
+            setAnchorEl(null);
+        };
+    
+        const handleFileSelect = (selectedFileId) => {
+            navigate(`/canvas/${selectedFileId}`, { state: { userId: userId } });
+            handleMenuClose();
+        };
+
+        const fetchIdeas = async () => {
+        if (!userId) return;
+        try {
+                const response = await axios.get(`http://localhost:8080/api/ideas/file/${fileId}`);
+                setIdeas(response.data);
+            } catch (err) {
+                console.error('アイデアの取得に失敗しました:', err);
+            }
+        };
+        
+        const fetchNotes = async () => {
+            if (!userId) return;
+            try {
+                const response = await axios.get(`http://localhost:8080/api/notes/file/${fileId}`);
+                setNotes(response.data);
+            } catch (err) {
+                console.error('付箋の取得に失敗しました:', err);
+            }
+        };
 
     if (loading) {
         return (
@@ -427,9 +528,13 @@ const Canvas = () => {
                     cursor: isCreatingNode ? 'crosshair' : (toolMode === 'move' ? (isDraggingCanvas ? 'grabbing' : 'grab') : 'default')
                 }}
             >
+                {/* 💡 Canvas要素の追加場所 */}
+                <canvas id="canvas-area" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }}></canvas>
+                
                 {filteredIdeas.length > 0 && filteredIdeas.map((idea) => (
                     <Box 
                         key={idea.id} 
+                        data-node-id={idea.id}
                         onMouseDown={(e) => toolMode !== 'move' && handleMouseDown(e, idea)}
                         onClick={(e) => {
                             if (toolMode === 'move' || isCreatingNode) return;
@@ -531,13 +636,64 @@ const Canvas = () => {
                 <Button variant="outlined" onClick={handleCreateNote}>
                     付箋ツール
                 </Button>
-                <Button 
-                    variant="contained"
-                    onClick={handleGoToPrompt}
-                >
-                    プロンプト作成
-                </Button>
             </Box>
+
+            <Box sx={{
+                    position: 'fixed',
+                    top: '20px',
+                    left: '20px',
+                    bgcolor: 'background.paper',
+                    p: 1,
+                    borderRadius: '8px',
+                    boxShadow: 3,
+                    display: 'flex',
+                    flexDirection: 'column', // 💡 縦に並べる
+                    gap: 1
+                }}>
+                    {/* 💡 キャンバス選択ボタンとメニュー */}
+                    <Button 
+                        variant="contained" 
+                        onClick={handleMenuClick}
+                    >
+                        キャンバス選択
+                    </Button>
+                    <Menu
+                        anchorEl={anchorEl}
+                        open={menuOpen}
+                        onClose={handleMenuClose}
+                    >
+                        {userFiles.length > 0 ? (
+                            userFiles.map((file) => (
+                                <MenuItem key={file.id} onClick={() => handleFileSelect(file.id)}>
+                                    {file.name}
+                                </MenuItem>
+                            ))
+                        ) : (
+                            <MenuItem onClick={handleMenuClose}>ファイルがありません</MenuItem>
+                        )}
+                    </Menu>
+                    {/* 💡 ノード一覧ボタン */}
+                    <Button 
+                        variant="contained" 
+                        onClick={() => setIsNodeListModalOpen(true)}
+                    >
+                        ノード一覧
+                    </Button>
+                    {/* 💡 プロンプト作成ボタン */}
+                    <Button 
+                        variant="contained"
+                        onClick={handleGoToPrompt}
+                    >
+                        プロンプト作成
+                    </Button>
+                    {/* 💡 関連性ボタン */}
+                    <Button
+                        variant="contained"
+                        onClick={linkRelatedNodes}
+                    >
+                        関連性
+                    </Button>
+                </Box>
 
             <Modal
                 open={isModalOpen}
@@ -604,6 +760,28 @@ const Canvas = () => {
                             </Box>
                         </Box>
                     )}
+                </Box>
+            </Modal>
+            {/* ノード一覧用のモーダル */}
+            <Modal
+                open={isNodeListModalOpen}
+                onClose={() => setIsNodeListModalOpen(false)}
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+                <Box sx={{
+                    width: '80%',
+                    height: '80%',
+                    bgcolor: 'background.paper',
+                    boxShadow: 24,
+                    p: 4,
+                    borderRadius: '8px',
+                    overflowY: 'auto'
+                }}>
+                    {/*ノード一覧コンポーネント */}
+                    <NodeListPage />
+                    <Button onClick={() => setIsNodeListModalOpen(false)} sx={{ mt: 2 }}>
+                        閉じる
+                    </Button>
                 </Box>
             </Modal>
         </Container>
