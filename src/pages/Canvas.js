@@ -77,7 +77,7 @@ const Canvas = () => {
 
     useEffect(() => {
         const handleKeyDown = async (e) => {
-            if (isModalOpen || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+            if (isModalOpen || isNodeListModalOpen || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
     
@@ -121,7 +121,7 @@ const Canvas = () => {
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [selectedNodeId, selectedNoteId, ideas, notes, isModalOpen]);
+    }, [selectedNodeId, selectedNoteId, ideas, notes, isModalOpen, isNodeListModalOpen]);
 
     const handleCanvasMouseDown = (e) => {
         setSelectedNodeId(null);
@@ -165,8 +165,8 @@ const Canvas = () => {
         if (!draggingNode && !draggingNote) return;
 
         const canvasRect = e.currentTarget.getBoundingClientRect();
-        const newPosX = e.clientX - canvasRect.left - offset.x;
-        const newPosY = e.clientY - canvasRect.top - offset.y;
+        const newPosX = e.clientX - canvasRect.left - offset.x - canvasOffset.x;
+        const newPosY = e.clientY - canvasRect.top - offset.y - canvasOffset.y;
         
         if (draggingNode) {
             setIdeas(ideas.map(idea => 
@@ -393,14 +393,10 @@ const Canvas = () => {
         handleMenuClose();
     };
     
-    const handleBack = () => {
+    const handleLogout = () => {
         navigate('/login');
     };
     
-    const handleNodeListButtonClick = () => {
-        setIsNodeListModalOpen(true);
-    };
-
     const handleCloseNodeListModal = () => {
         setIsNodeListModalOpen(false);
     };
@@ -423,29 +419,6 @@ const Canvas = () => {
     
     return (
         <Container maxWidth="xl" sx={{ mt: 4 }}>
-            <Typography variant="h4" component="h1">
-                キャンバス画面
-            </Typography>
-            <Typography variant="h6">
-                ファイルID: {fileId} / ユーザーID: {userId}
-            </Typography>
-
-            <Box sx={{ my: 2, display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                <Typography variant="body1" sx={{ mr: 1, fontWeight: 'bold' }}>
-                    タグフィルター:
-                </Typography>
-                {allTags.map(tag => (
-                    <Chip
-                        key={tag}
-                        label={tag}
-                        onClick={() => handleFilterTagClick(tag)}
-                        color={selectedTags.includes(tag) ? 'primary' : 'default'}
-                        variant={selectedTags.includes(tag) ? 'filled' : 'outlined'}
-                        sx={{ cursor: 'pointer' }}
-                    />
-                ))}
-            </Box>
-
             <Box
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleMouseMove}
@@ -453,15 +426,12 @@ const Canvas = () => {
                 onClick={handleCanvasClick}
                 sx={{
                     width: '100%',
-                    height: '500px',
-                    border: '1px solid gray',
+                    height: '100vh',
                     position: 'relative',
                     overflow: 'hidden',
-                    mt: 2,
                     cursor: isCreatingNode ? 'crosshair' : (toolMode === 'move' ? (isDraggingCanvas ? 'grabbing' : 'grab') : 'default')
                 }}
             >
-                
                 {filteredIdeas.length > 0 && filteredIdeas.map((idea) => {
                 const isToolModeBlocked = toolMode === 'move' || isCreatingNode;
 
@@ -558,7 +528,6 @@ const Canvas = () => {
                 >
                     手のひらツール
                 </Button>
-                <Button variant="outlined">タグツール</Button>
                 <Button 
                     variant="contained" 
                     onClick={handleToggleCreateNode}
@@ -617,6 +586,17 @@ const Canvas = () => {
                         プロンプト作成
                     </Button>
                 </Box>
+            
+            <Box sx={{
+                position: 'fixed',
+                top: '20px',
+                right: '20px',
+                zIndex: 1000 
+            }}>
+                <Button variant="contained" onClick={handleLogout}>
+                    ログアウト
+                </Button>
+            </Box>
 
             <Modal
                 open={isModalOpen}
@@ -685,15 +665,34 @@ const Canvas = () => {
                     )}
                 </Box>
             </Modal>
-            <NodeListPage 
-                open={isNodeListModalOpen} 
-                onClose={handleCloseNodeListModal} 
-                ideas={ideas} 
-                onSelectIdea={(ideaId) => {
-                    setSelectedNodeId(ideaId);
-                    setIsNodeListModalOpen(false);
-                }} 
-            />
+
+            {/* ノード一覧用のモーダル */}
+            <Modal
+                open={isNodeListModalOpen}
+                onClose={handleCloseNodeListModal}
+                sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            >
+                <Box sx={{
+                    width: '80%',
+                    height: '80%',
+                    bgcolor: 'background.paper',
+                    boxShadow: 24,
+                    p: 4,
+                    borderRadius: '8px',
+                    overflowY: 'auto'
+                }}>
+                    <NodeListPage 
+                        ideas={ideas} 
+                        onSelectIdea={(ideaId) => {
+                            setSelectedNodeId(ideaId);
+                            setIsNodeListModalOpen(false);
+                        }} 
+                    />
+                    <Button onClick={handleCloseNodeListModal} sx={{ mt: 2 }}>
+                        閉じる
+                    </Button>
+                </Box>
+            </Modal>
         </Container>
     );
 };

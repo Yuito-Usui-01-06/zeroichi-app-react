@@ -9,6 +9,7 @@ const App = () => {
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<Login />} />
+                <Route path="/login" element={<Login />} />
                 {/* 💡 URLからuserIdを削除 */}
                 <Route path="/canvas/:fileId" element={<CanvasPage />} />
                 {/* 💡 URLからuserIdを削除 */}

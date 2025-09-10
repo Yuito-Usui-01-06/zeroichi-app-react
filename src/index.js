@@ -2,6 +2,7 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 // import './index.css';  // この行を削除
 import App from './App';
+import './index.css';
 // import reportWebVitals from './reportWebVitals';  // この行を削除
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
