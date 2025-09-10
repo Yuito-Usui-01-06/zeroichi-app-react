@@ -38,6 +38,8 @@ const Canvas = () => {
     const [userFiles, setUserFiles] = useState([]);
     const menuOpen = Boolean(anchorEl);
 
+    const [isHovered, setIsHovered] = useState(false);
+
     useEffect(() => {
         const fetchData = async () => {
             if (!userId) {
@@ -570,54 +572,80 @@ const Canvas = () => {
                     付箋ツール
                 </Button>
             </Box>
-
-            <Box sx={{
+            
+            {/* 💡 マウスホバーを判定する新しい親コンテナ */}
+            <Box
+                sx={{
                     position: 'fixed',
                     top: '20px',
                     left: '20px',
-                    bgcolor: 'background.paper',
-                    p: 1,
-                    borderRadius: '8px',
-                    boxShadow: 3,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 1
-                }}>
-                    <Button 
-                        variant="contained" 
-                        onClick={handleMenuClick}
-                    >
-                        キャンバス選択
-                    </Button>
-                    <Menu
-                        anchorEl={anchorEl}
-                        open={menuOpen}
-                        onClose={handleMenuClose}
-                    >
-                        {userFiles.length > 0 ? (
-                            userFiles.map((file) => (
-                                <MenuItem key={file.id} onClick={() => handleFileSelect(file.id)}>
-                                    {file.name}
-                                </MenuItem>
-                            ))
-                        ) : (
-                            <MenuItem onClick={handleMenuClose}>ファイルがありません</MenuItem>
-                        )}
-                    </Menu>
-                    <Button 
-                        variant="contained" 
-                        onClick={() => setIsNodeListModalOpen(true)}
-                    >
-                        ノード一覧
-                    </Button>
-                    <Button 
-                        variant="contained"
-                        onClick={handleGoToPrompt}
-                    >
-                        プロンプト作成
-                    </Button>
+                    // 💡 親コンテナのサイズを調整してボタン群をカバー
+                    width: '180px', 
+                    height: '200px',
+                }}
+                onMouseEnter={() => setIsHovered(true)}
+                onMouseLeave={() => setIsHovered(false)}
+            >
+                {/* 💡 〇のボックス（親コンテナの中） */}
+                <Box
+                    sx={{
+                        bgcolor: 'background.paper',
+                        p: 1,
+                        borderRadius: '50%',
+                        width: '25px',
+                        height: '25px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: 3,
+                        cursor: 'pointer',
+                    }}
+                >
+                    <Typography variant="h6">〇</Typography>
                 </Box>
-            
+
+                {/* 💡 ホバー時に表示されるボタン群（親コンテナの中） */}
+                {isHovered && (
+                    <Box sx={{
+                        position: 'absolute', // 💡 親コンテナ内で絶対配置
+                        top: '50px',
+                        left: 0, // 💡 〇のボックスの右側に表示
+                        bgcolor: 'background.paper',
+                        p: 1,
+                        borderRadius: '8px',
+                        boxShadow: 3,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 1
+                    }}>
+                        <Button variant="contained" onClick={handleMenuClick}>
+                            キャンバス選択
+                        </Button>
+                        <Menu
+                            anchorEl={anchorEl}
+                            open={menuOpen}
+                            onClose={handleMenuClose}
+                        >
+                            {userFiles.length > 0 ? (
+                                userFiles.map((file) => (
+                                    <MenuItem key={file.id} onClick={() => handleFileSelect(file.id)}>
+                                        {file.name}
+                                    </MenuItem>
+                                ))
+                            ) : (
+                                <MenuItem onClick={handleMenuClose}>ファイルがありません</MenuItem>
+                            )}
+                        </Menu>
+                        <Button variant="contained" onClick={() => setIsNodeListModalOpen(true)}>
+                            ノード一覧
+                        </Button>
+                        <Button variant="contained" onClick={handleGoToPrompt}>
+                            プロンプト作成
+                        </Button>
+                    </Box>
+                )}
+            </Box>
+
             <Box sx={{
                 position: 'fixed',
                 top: '20px',
