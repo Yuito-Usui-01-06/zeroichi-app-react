@@ -228,11 +228,19 @@ const Canvas = () => {
     };
     
     const handleCanvasClick = (e) => {
-        if (isCreatingNode) {
-            const canvasRect = e.currentTarget.getBoundingClientRect();
-            const posX = e.clientX - canvasRect.left - canvasOffset.x;
-            const posY = e.clientY - canvasRect.top - canvasOffset.y;
-
+        // ツールがアクティブでない場合はノードの選択を解除
+        if (toolMode === 'select' || e.target.closest('.MuiButtonBase-root')) {
+            setSelectedNodeId(null);
+            setSelectedNoteId(null);
+            return;
+        }
+    
+        const canvasRect = e.currentTarget.getBoundingClientRect();
+        const posX = e.clientX - canvasRect.left - canvasOffset.x;
+        const posY = e.clientY - canvasRect.top - canvasOffset.y;
+    
+        // 💡 アイデアノード作成ツールのロジック
+        if (toolMode === 'createNode') {
             const newIdea = {
                 title: '新しいアイデア',
                 description: 'ここを編集できます',
@@ -244,21 +252,35 @@ const Canvas = () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
-
+    
             axios.post('http://localhost:8080/api/ideas', newIdea)
             .then(response => {
                 setIdeas([...ideas, response.data]);
-                setIsCreatingNode(false);
-                setToolMode('select');
+                setToolMode('select'); // ツールをリセット
             })
             .catch(err => {
                 console.error('ノード作成エラー:', err);
                 alert('ノードの作成に失敗しました。');
             });
-            
-        } else {
-            setSelectedNodeId(null);
-            setSelectedNoteId(null);
+        }
+    
+        // 💡 付箋ツールのロジック
+        if (toolMode === 'createNote') {
+            const newNote = {
+                text: '付箋',
+                posX: posX,
+                posY: posY,
+                userId: userId,
+                fileId: fileId
+            };
+            axios.post('http://localhost:8080/api/notes', newNote)
+            .then(response => {
+                setNotes([...notes, response.data]);
+                setToolMode('select'); // ツールをリセット
+            })
+            .catch(err => {
+                console.error('付箋作成エラー:', err);
+            });
         }
     };
     
@@ -335,6 +357,11 @@ const Canvas = () => {
     };
 
     const handleTagInputKeyDown = (e) => {
+        // 💡 変換確定のエンターキー（キーコード229）を無視する
+        if (e.keyCode === 229) {
+            return;
+        }
+    
         if (e.key === 'Enter' && e.target.value) {
             e.preventDefault();
             const newTag = e.target.value.trim();
@@ -522,20 +549,24 @@ const Canvas = () => {
                 gap: 1
             }}>
                 <Button 
-                    variant="outlined"
-                    onClick={handleToggleMoveTool}
-                    color={toolMode === 'move' ? 'primary' : 'inherit'}
+                    variant="contained" 
+                    onClick={() => setToolMode(toolMode === 'move' ? 'select' : 'move')}
+                    color={toolMode === 'move' ? 'secondary' : 'primary'}
                 >
                     手のひらツール
                 </Button>
                 <Button 
                     variant="contained" 
-                    onClick={handleToggleCreateNode}
-                    color={isCreatingNode ? 'secondary' : 'primary'}
+                    onClick={() => setToolMode(toolMode === 'createNode' ? 'select' : 'createNode')}
+                    color={toolMode === 'createNode' ? 'secondary' : 'primary'}
                 >
                     アイデアノード作成ツール
                 </Button>
-                <Button variant="outlined" onClick={handleCreateNote}>
+                <Button 
+                    variant="contained" 
+                    onClick={() => setToolMode(toolMode === 'createNote' ? 'select' : 'createNote')}
+                    color={toolMode === 'createNote' ? 'secondary' : 'primary'}
+                >
                     付箋ツール
                 </Button>
             </Box>
@@ -621,7 +652,7 @@ const Canvas = () => {
                             <TextField
                                 label="タイトル"
                                 name="title"
-                                value={editingIdea.title}
+                                placeholder="新しいアイデア"
                                 onChange={handleInputChange}
                                 fullWidth
                                 sx={{ mb: 2 }}
@@ -630,7 +661,7 @@ const Canvas = () => {
                             <TextField
                                 label="詳細"
                                 name="description"
-                                value={editingIdea.description}
+                                placeholder="ここを編集できます"
                                 onChange={handleInputChange}
                                 multiline
                                 rows={4}

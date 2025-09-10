@@ -35,19 +35,34 @@ const Login = () => {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-  
+
     const user = { username, password, email };
-    
+
     if (isLogin) {
       try {
         const response = await axios.post('http://localhost:8080/api/login', { username, password });
         const loggedInUser = response.data;
-        const userId = loggedInUser.userId; 
-        const fileId = loggedInUser.fileId; 
-        
-        // 💡 navigateのstateにデータを渡す形式に戻す
+        const userId = loggedInUser.userId;
+
+        // 💡 ログイン成功後、既存のファイルをチェックするAPIを呼び出す
+        const filesResponse = await axios.get(`http://localhost:8080/api/files/user/${userId}`);
+        const files = filesResponse.data;
+
+        let fileId;
+        if (files.length === 0) {
+          // 💡 既存ファイルがない場合、新規ファイルを作成
+          const newFileResponse = await axios.post('http://localhost:8080/api/files', {
+            name: 'My First Canvas',
+            userId: userId
+          });
+          fileId = newFileResponse.data.id;
+        } else {
+          // 💡 既存ファイルがある場合、一番古いファイルにリダイレクト
+          fileId = files[0].id;
+        }
+
         navigate(`/canvas/${fileId}`, { state: { userId: userId, fileId: fileId } });
-        
+
       } catch (error) {
         console.error('ログインエラー:', error);
         if (error.response && error.response.data) {
