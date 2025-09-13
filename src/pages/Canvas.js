@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, TextField, Modal, Chip, Menu, MenuItem } from '@mui/material';
+import { Container, Typography, Box, Button, TextField, Modal, Chip, Menu, MenuItem, lighten, useTheme  } from '@mui/material';
 import axios from 'axios';
 import NodeListPage from './NodeListPage';
+import IconButton from '@mui/material/IconButton';
+import CreateIcon from '@mui/icons-material/Create';
 
 const Canvas = () => {
     const { fileId } = useParams();
@@ -39,6 +41,14 @@ const Canvas = () => {
     const menuOpen = Boolean(anchorEl);
 
     const [isHovered, setIsHovered] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+    const [newCanvasName, setNewCanvasName] = useState('');
+    const theme = useTheme();
+
+    const [isEditingFileName, setIsEditingFileName] = useState(false);
+    const [currentFileName, setCurrentFileName] = useState('');
 
     useEffect(() => {
         const fetchData = async () => {
@@ -125,6 +135,12 @@ const Canvas = () => {
         };
     }, [selectedNodeId, selectedNoteId, ideas, notes, isModalOpen, isNodeListModalOpen]);
 
+    useEffect(() => {
+        if (userId) {
+            fetchFiles();
+        }
+    }, [userId]);
+
     const handleCanvasMouseDown = (e) => {
         setSelectedNodeId(null);
         setSelectedNoteId(null);
@@ -154,6 +170,15 @@ const Canvas = () => {
             y: e.clientY - rect.top,
         });
     };
+
+    useEffect(() => {
+        // 💡 userFilesリストからfileIdに一致するファイル名を検索
+        const file = userFiles.find(f => f.id === fileId);
+        if (file) {
+            // 💡 検索したファイル名で状態を更新
+            setCurrentFileName(file.name);
+        }
+    }, [fileId, userFiles]);
     
     const handleMouseMove = (e) => {
         if (toolMode === 'move' && isDraggingCanvas) {
@@ -430,6 +455,63 @@ const Canvas = () => {
         setIsNodeListModalOpen(false);
     };
 
+    const handleCreateNewFile = async () => {
+        if (!newCanvasName.trim()) {
+            alert('キャンバス名を入力してください。');
+            return;
+        }
+    
+        try {
+            const response = await axios.post('http://localhost:8080/api/files', {
+                name: newCanvasName,
+                userId: userId // 💡 ログインユーザーのIDを使用
+            });
+            const newFileId = response.data.id;
+    
+            // 💡 画面を新しいキャンバスにリダイレクト
+            navigate(`/canvas/${newFileId}`, { state: { userId, fileId: newFileId } });
+    
+            // 💡 モーダルを閉じて、状態をリセット
+            setIsCreateModalOpen(false);
+            setNewCanvasName('');
+            fetchFiles(); // 💡 キャンバスリストを再取得
+        } catch (error) {
+            console.error('新規キャンバス作成エラー:', error);
+            alert('新しいキャンバスの作成に失敗しました。');
+        }
+    };
+
+    const fetchFiles = async () => {
+        try {
+            const response = await axios.get(`http://localhost:8080/api/files/user/${userId}`);
+            setUserFiles(response.data);
+        } catch (error) {
+            console.error('ファイルの取得エラー:', error);
+        }
+    };
+
+    const handleSaveFileName = async () => {
+        if (!currentFileName.trim()) {
+            alert('ファイル名を入力してください。');
+            setCurrentFileName(userFiles.find(file => file.id === fileId)?.name || '');
+            setIsEditingFileName(false);
+            return;
+        }
+        
+        try {
+            await axios.put(`http://localhost:8080/api/files/${fileId}`, { name: currentFileName });
+            setIsEditingFileName(false);
+            // 必要に応じてファイルリストを再取得
+            fetchFiles();
+        } catch (error) {
+            console.error('ファイル名の更新エラー:', error);
+            alert('ファイル名の更新に失敗しました。');
+            // エラー時は元の名前に戻す
+            setCurrentFileName(userFiles.find(file => file.id === fileId)?.name || '');
+            setIsEditingFileName(false);
+        }
+    };
+
     if (loading) {
         return (
             <Container maxWidth="xl" sx={{ mt: 4 }}>
@@ -573,23 +655,24 @@ const Canvas = () => {
                 </Button>
             </Box>
             
-            {/* 💡 マウスホバーを判定する新しい親コンテナ */}
             <Box
                 sx={{
                     position: 'fixed',
                     top: '20px',
                     left: '20px',
-                    // 💡 親コンテナのサイズを調整してボタン群をカバー
-                    width: '180px', 
-                    height: '200px',
+                    width: 'auto',
+                    height: 'auto',
+                    overflow: 'visible',
+                    userSelect: 'none',
                 }}
-                onMouseEnter={() => setIsHovered(true)}
-                onMouseLeave={() => setIsHovered(false)}
+                // 💡 ホバーイベントを削除
+                // onMouseEnter={() => setIsHovered(true)}
+                // onMouseLeave={() => setIsHovered(false)}
             >
                 {/* 💡 〇のボックス（親コンテナの中） */}
                 <Box
                     sx={{
-                        bgcolor: 'background.paper',
+                        bgcolor: isMenuOpen ? 'primary.main' : 'background.paper',
                         p: 1,
                         borderRadius: '50%',
                         width: '25px',
@@ -599,36 +682,75 @@ const Canvas = () => {
                         justifyContent: 'center',
                         boxShadow: 3,
                         cursor: 'pointer',
+                        transition: 'transform 0.1s ease-in-out',
+                        '&:active': {
+                            transform: 'scale(0.95)',
+                        },
                     }}
+                    // 💡 クリックイベントを追加
+                    onClick={() => setIsMenuOpen(!isMenuOpen)}
                 >
-                    <Typography variant="h6">〇</Typography>
+                    <Typography 
+                        variant="h6" 
+                        sx={{ color: isMenuOpen ? 'white' : 'inherit',
+                              userSelect: 'none', 
+                            }}
+                    >
+                    〇
+                    </Typography>
                 </Box>
 
-                {/* 💡 ホバー時に表示されるボタン群（親コンテナの中） */}
-                {isHovered && (
+                {/* 💡 isMenuOpenがtrueの時だけボタン群を表示 */}
+                {isMenuOpen && (
                     <Box sx={{
-                        position: 'absolute', // 💡 親コンテナ内で絶対配置
+                        position: 'absolute',
                         top: '50px',
-                        left: 0, // 💡 〇のボックスの右側に表示
+                        left: 0,
                         bgcolor: 'background.paper',
                         p: 1,
                         borderRadius: '8px',
                         boxShadow: 3,
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: 1
+                        gap: 1,
+                        transition: 'opacity 0.3s ease-in-out',
+                        opacity: isMenuOpen ? 1 : 0,
+                        visibility: isMenuOpen ? 'visible' : 'hidden',
+                        width: '180px',
+                        height: 'auto',
                     }}>
-                        <Button variant="contained" onClick={handleMenuClick}>
-                            キャンバス選択
+                        {/* ... (ボタン群のコード) ... */}
+                        <Button 
+                            variant="contained" 
+                            onClick={handleMenuClick} 
+                            color={isMenuOpen ? 'primary' : 'inherit'}
+                        >
+                            キャンバス
                         </Button>
                         <Menu
                             anchorEl={anchorEl}
                             open={menuOpen}
                             onClose={handleMenuClose}
+                            PaperProps={{
+                                sx: {
+                                    bgcolor: lighten(theme.palette.primary.main, 0.8),
+                                }
+                            }}
                         >
+                            {/* 💡 新規作成項目を追加 */}
+                            <MenuItem onClick={() => {
+                                handleMenuClose();
+                                setIsCreateModalOpen(true);
+                            }}
+                            >
+                                新規作成
+                            </MenuItem>
                             {userFiles.length > 0 ? (
                                 userFiles.map((file) => (
-                                    <MenuItem key={file.id} onClick={() => handleFileSelect(file.id)}>
+                                    <MenuItem 
+                                        key={file.id} 
+                                        onClick={() => handleFileSelect(file.id)}
+                                    >
                                         {file.name}
                                     </MenuItem>
                                 ))
@@ -636,14 +758,61 @@ const Canvas = () => {
                                 <MenuItem onClick={handleMenuClose}>ファイルがありません</MenuItem>
                             )}
                         </Menu>
-                        <Button variant="contained" onClick={() => setIsNodeListModalOpen(true)}>
+                        <Button 
+                            variant="contained" 
+                            onClick={() => setIsNodeListModalOpen(true)} 
+                            color={isMenuOpen ? 'primary' : 'inherit'}
+                        >
                             ノード一覧
                         </Button>
-                        <Button variant="contained" onClick={handleGoToPrompt}>
+                        <Button 
+                            variant="contained" 
+                            onClick={handleGoToPrompt} 
+                            color={isMenuOpen ? 'primary' : 'inherit'}
+                        >
                             プロンプト作成
                         </Button>
                     </Box>
                 )}
+            </Box>
+
+            {/* 💡 ファイル名表示/編集エリア */}
+            <Box
+                sx={{
+                    position: 'fixed',
+                    top: '15px',
+                    left: '80px', // 💡 ボタン群の右側に配置
+                    zIndex: 100,
+                    p: 1,
+                    bgcolor: 'background.paper',
+                    borderRadius: '8px',
+                    boxShadow: 3,
+                    userSelect: 'none',
+                }}
+            >
+                {isEditingFileName ? (
+                <TextField
+                    value={currentFileName}
+                    onChange={(e) => setCurrentFileName(e.target.value)}
+                    onBlur={handleSaveFileName}
+                    onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                            handleSaveFileName();
+                        }
+                    }}
+                    autoFocus
+                    size="small"
+                />
+            ) : (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="h6" onClick={() => setIsEditingFileName(true)}>
+                        {currentFileName}
+                    </Typography>
+                    <IconButton onClick={() => setIsEditingFileName(true)} size="small">
+                        <CreateIcon />
+                    </IconButton>
+                </Box>
+            )}
             </Box>
 
             <Box sx={{
@@ -749,6 +918,41 @@ const Canvas = () => {
                     />
                     <Button onClick={handleCloseNodeListModal} sx={{ mt: 2 }}>
                         閉じる
+                    </Button>
+                </Box>
+            </Modal>
+
+            <Modal
+                open={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                aria-labelledby="create-new-canvas-modal-title"
+            >
+                <Box sx={{
+                    position: 'absolute',
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%)',
+                    bgcolor: 'background.paper',
+                    p: 4,
+                    borderRadius: '8px',
+                    boxShadow: 24,
+                    width: 400,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2
+                }}>
+                    <Typography id="create-new-canvas-modal-title" variant="h6" component="h2">
+                        新しいキャンバスを作成
+                    </Typography>
+                    <TextField
+                        label="キャンバス名"
+                        variant="outlined"
+                        fullWidth
+                        value={newCanvasName}
+                        onChange={(e) => setNewCanvasName(e.target.value)}
+                    />
+                    <Button variant="contained" onClick={handleCreateNewFile}>
+                        作成
                     </Button>
                 </Box>
             </Modal>
