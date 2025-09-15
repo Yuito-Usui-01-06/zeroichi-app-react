@@ -427,8 +427,8 @@ const Canvas = () => {
         }
     };
 
-    const handleGoToPrompt = () => {
-        navigate(`/prompt/${fileId}`, { state: { userId: userId, fileId: fileId } });
+    const handleGoToNews = () => {
+        navigate(`/news/${fileId}`, { state: { userId: userId, fileId: fileId } });
     };
 
     const filteredIdeas = selectedTags.length > 0
@@ -769,10 +769,10 @@ const Canvas = () => {
                         </Button>
                         <Button
                             variant="contained"
-                            onClick={handleGoToPrompt}
+                            onClick={handleGoToNews}
                             color={isMenuOpen ? 'primary' : 'inherit'}
                         >
-                            プロンプト作成
+                            News
                         </Button>
                     </Box>
                 )}

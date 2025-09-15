@@ -2,7 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './components/Login';
 import CanvasPage from './pages/Canvas';
-import PromptPage from './pages/PromptPage';
+import NewsPage from './pages/NewsPage';
 
 const App = () => {
     return (
@@ -13,7 +13,7 @@ const App = () => {
                 {/* 💡 URLからuserIdを削除 */}
                 <Route path="/canvas/:fileId" element={<CanvasPage />} />
                 {/* 💡 URLからuserIdを削除 */}
-                <Route path="/prompt/:fileId" element={<PromptPage />} />
+                <Route path="/news/:fileId" element={<NewsPage />} />
             </Routes>
         </BrowserRouter>
     );
