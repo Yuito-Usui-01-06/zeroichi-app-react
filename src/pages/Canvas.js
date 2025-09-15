@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useLocation, useNavigate } from 'react-router-dom';
-import { Container, Typography, Box, Button, TextField, Modal, Chip, Menu, MenuItem, lighten, useTheme  } from '@mui/material';
+import { Container, Typography, Box, Button, TextField, Modal, Chip, Menu, MenuItem, lighten, useTheme } from '@mui/material';
 import axios from 'axios';
 import NodeListPage from './NodeListPage';
 import IconButton from '@mui/material/IconButton';
@@ -16,22 +16,22 @@ const Canvas = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isCreatingNode, setIsCreatingNode] = useState(false);
-    const [toolMode, setToolMode] = useState('select'); 
-    
+    const [toolMode, setToolMode] = useState('select');
+
     const [draggingNode, setDraggingNode] = useState(null);
     const [draggingNote, setDraggingNote] = useState(null);
     const [offset, setOffset] = useState({ x: 0, y: 0 });
-    
+
     const [isDraggingCanvas, setIsDraggingCanvas] = useState(false);
     const lastPosition = useRef({ x: 0, y: 0 });
     const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 });
-    
+
     const [selectedNodeId, setSelectedNodeId] = useState(null);
     const [selectedNoteId, setSelectedNoteId] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingIdea, setEditingIdea] = useState(null);
     const [isNodeListModalOpen, setIsNodeListModalOpen] = useState(false);
-    
+
     const [notes, setNotes] = useState([]);
     const [allTags, setAllTags] = useState([]);
     const [selectedTags, setSelectedTags] = useState([]);
@@ -50,6 +50,17 @@ const Canvas = () => {
     const [isEditingFileName, setIsEditingFileName] = useState(false);
     const [currentFileName, setCurrentFileName] = useState('');
 
+    // 💡 ファイル名を取得するための関数を追加
+    const fetchFileName = async (id) => {
+        try {
+            const response = await axios.get(`http://localhost:8080/api/files/${id}`);
+            setCurrentFileName(response.data.name);
+        } catch (error) {
+            console.error('ファイル名の取得エラー:', error);
+        }
+    };
+    
+    // 💡 fileIdまたはuserIdが変更されたときにデータを取得
     useEffect(() => {
         const fetchData = async () => {
             if (!userId) {
@@ -57,7 +68,14 @@ const Canvas = () => {
                 setLoading(false);
                 return;
             }
+            if (!fileId) { // 💡 fileIdがまだない場合は何もしない
+                setLoading(false);
+                return;
+            }
             try {
+                // 💡 ファイル名を取得
+                await fetchFileName(fileId);
+
                 const ideasResponse = await axios.get(`http://localhost:8080/api/ideas/file/${fileId}`);
                 setIdeas(ideasResponse.data);
 
@@ -72,7 +90,7 @@ const Canvas = () => {
         };
 
         fetchData();
-    }, [fileId, userId]);
+    }, [fileId, userId]); // 💡 fileIdとuserIdを依存配列に追加
 
     useEffect(() => {
         const fetchAllTags = () => {
@@ -92,10 +110,10 @@ const Canvas = () => {
             if (isModalOpen || isNodeListModalOpen || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                 return;
             }
-    
+
             if ((e.key === 'Backspace' || e.key === 'Delete')) {
                 e.preventDefault();
-                
+
                 if (selectedNodeId) {
                     const confirmDelete = window.confirm('本当にこのノードを削除しますか？');
                     if (confirmDelete) {
@@ -110,7 +128,7 @@ const Canvas = () => {
                         }
                     }
                 }
-    
+
                 if (selectedNoteId) {
                     const confirmDelete = window.confirm('本当にこの付箋を削除しますか？');
                     if (confirmDelete) {
@@ -150,15 +168,15 @@ const Canvas = () => {
             lastPosition.current = { x: e.clientX, y: e.clientY };
         }
     };
-    
+
     const handleMouseDown = (e, item) => {
         if (isCreatingNode || toolMode === 'move') return;
-        
+
         e.stopPropagation();
-        
+
         const target = e.currentTarget;
         const rect = target.getBoundingClientRect();
-        
+
         if (item.nodeType) {
             setDraggingNode(item.id);
         } else {
@@ -171,15 +189,6 @@ const Canvas = () => {
         });
     };
 
-    useEffect(() => {
-        // 💡 userFilesリストからfileIdに一致するファイル名を検索
-        const file = userFiles.find(f => f.id === fileId);
-        if (file) {
-            // 💡 検索したファイル名で状態を更新
-            setCurrentFileName(file.name);
-        }
-    }, [fileId, userFiles]);
-    
     const handleMouseMove = (e) => {
         if (toolMode === 'move' && isDraggingCanvas) {
             const deltaX = e.clientX - lastPosition.current.x;
@@ -194,13 +203,13 @@ const Canvas = () => {
         const canvasRect = e.currentTarget.getBoundingClientRect();
         const newPosX = e.clientX - canvasRect.left - offset.x - canvasOffset.x;
         const newPosY = e.clientY - canvasRect.top - offset.y - canvasOffset.y;
-        
+
         if (draggingNode) {
-            setIdeas(ideas.map(idea => 
+            setIdeas(ideas.map(idea =>
                 idea.id === draggingNode ? { ...idea, posX: newPosX, posY: newPosY } : idea
             ));
         } else if (draggingNote) {
-            setNotes(notes.map(note => 
+            setNotes(notes.map(note =>
                 note.id === draggingNote ? { ...note, posX: newPosX, posY: newPosY } : note
             ));
         }
@@ -223,7 +232,7 @@ const Canvas = () => {
                 }
             }
         }
-        
+
         if (draggingNote) {
             const updatedNote = notes.find(note => note.id === draggingNote);
             if (updatedNote) {
@@ -235,7 +244,7 @@ const Canvas = () => {
                 }
             }
         }
-        
+
         setDraggingNode(null);
         setDraggingNote(null);
     };
@@ -253,7 +262,7 @@ const Canvas = () => {
         setSelectedNodeId(null);
         setSelectedNoteId(null);
     };
-    
+
     const handleCanvasClick = (e) => {
         // ツールがアクティブでない場合はノードの選択を解除
         if (toolMode === 'select' || e.target.closest('.MuiButtonBase-root')) {
@@ -261,11 +270,11 @@ const Canvas = () => {
             setSelectedNoteId(null);
             return;
         }
-    
+
         const canvasRect = e.currentTarget.getBoundingClientRect();
         const posX = e.clientX - canvasRect.left - canvasOffset.x;
         const posY = e.clientY - canvasRect.top - canvasOffset.y;
-    
+
         // 💡 アイデアノード作成ツールのロジック
         if (toolMode === 'createNode') {
             const newIdea = {
@@ -279,18 +288,18 @@ const Canvas = () => {
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString()
             };
-    
+
             axios.post('http://localhost:8080/api/ideas', newIdea)
-            .then(response => {
-                setIdeas([...ideas, response.data]);
-                setToolMode('select'); // ツールをリセット
-            })
-            .catch(err => {
-                console.error('ノード作成エラー:', err);
-                alert('ノードの作成に失敗しました。');
-            });
+                .then(response => {
+                    setIdeas([...ideas, response.data]);
+                    setToolMode('select'); // ツールをリセット
+                })
+                .catch(err => {
+                    console.error('ノード作成エラー:', err);
+                    alert('ノードの作成に失敗しました。');
+                });
         }
-    
+
         // 💡 付箋ツールのロジック
         if (toolMode === 'createNote') {
             const newNote = {
@@ -301,16 +310,16 @@ const Canvas = () => {
                 fileId: fileId
             };
             axios.post('http://localhost:8080/api/notes', newNote)
-            .then(response => {
-                setNotes([...notes, response.data]);
-                setToolMode('select'); // ツールをリセット
-            })
-            .catch(err => {
-                console.error('付箋作成エラー:', err);
-            });
+                .then(response => {
+                    setNotes([...notes, response.data]);
+                    setToolMode('select'); // ツールをリセット
+                })
+                .catch(err => {
+                    console.error('付箋作成エラー:', err);
+                });
         }
     };
-    
+
     const handleNodeDoubleClick = (e, idea) => {
         e.stopPropagation();
         setEditingIdea({ ...idea, tags: idea.tags || [] });
@@ -338,14 +347,14 @@ const Canvas = () => {
                 ...editingIdea,
                 updatedAt: new Date().toISOString()
             });
-            
+
             setIdeas(ideas.map(idea =>
                 idea.id === editingIdea.id ? editingIdea : idea
             ));
-            
+
             handleCloseModal();
             alert('ノードが更新されました！');
-            
+
         } catch (err) {
             console.error('ノード更新エラー:', err);
             alert('ノードの更新に失敗しました。');
@@ -367,13 +376,13 @@ const Canvas = () => {
             console.error('付箋作成エラー:', err);
         }
     };
-    
+
     const handleNoteTextChange = async (e, noteId) => {
         const newNotes = notes.map(note =>
             note.id === noteId ? { ...note, text: e.target.value } : note
         );
         setNotes(newNotes);
-        
+
         try {
             const updatedNote = newNotes.find(note => note.id === noteId);
             await axios.put(`http://localhost:8080/api/notes/${updatedNote.id}`, updatedNote);
@@ -388,7 +397,7 @@ const Canvas = () => {
         if (e.keyCode === 229) {
             return;
         }
-    
+
         if (e.key === 'Enter' && e.target.value) {
             e.preventDefault();
             const newTag = e.target.value.trim();
@@ -402,7 +411,7 @@ const Canvas = () => {
             e.target.value = '';
         }
     };
-    
+
     const handleDeleteTag = (tagToDelete) => {
         setEditingIdea({
             ...editingIdea,
@@ -417,7 +426,7 @@ const Canvas = () => {
             setSelectedTags([...selectedTags, tag]);
         }
     };
-    
+
     const handleGoToPrompt = () => {
         navigate(`/prompt/${fileId}`, { state: { userId: userId, fileId: fileId } });
     };
@@ -437,20 +446,20 @@ const Canvas = () => {
             }
         }
     };
-    
+
     const handleMenuClose = () => {
         setAnchorEl(null);
     };
-    
+
     const handleFileSelect = (selectedFileId) => {
         navigate(`/canvas/${selectedFileId}`, { state: { userId: userId } });
         handleMenuClose();
     };
-    
+
     const handleLogout = () => {
         navigate('/login');
     };
-    
+
     const handleCloseNodeListModal = () => {
         setIsNodeListModalOpen(false);
     };
@@ -460,21 +469,19 @@ const Canvas = () => {
             alert('キャンバス名を入力してください。');
             return;
         }
-    
+
         try {
             const response = await axios.post('http://localhost:8080/api/files', {
                 name: newCanvasName,
-                userId: userId // 💡 ログインユーザーのIDを使用
+                userId: userId
             });
             const newFileId = response.data.id;
-    
-            // 💡 画面を新しいキャンバスにリダイレクト
+
             navigate(`/canvas/${newFileId}`, { state: { userId, fileId: newFileId } });
-    
-            // 💡 モーダルを閉じて、状態をリセット
+
             setIsCreateModalOpen(false);
             setNewCanvasName('');
-            fetchFiles(); // 💡 キャンバスリストを再取得
+            fetchFiles();
         } catch (error) {
             console.error('新規キャンバス作成エラー:', error);
             alert('新しいキャンバスの作成に失敗しました。');
@@ -497,16 +504,14 @@ const Canvas = () => {
             setIsEditingFileName(false);
             return;
         }
-        
+
         try {
             await axios.put(`http://localhost:8080/api/files/${fileId}`, { name: currentFileName });
             setIsEditingFileName(false);
-            // 必要に応じてファイルリストを再取得
             fetchFiles();
         } catch (error) {
             console.error('ファイル名の更新エラー:', error);
             alert('ファイル名の更新に失敗しました。');
-            // エラー時は元の名前に戻す
             setCurrentFileName(userFiles.find(file => file.id === fileId)?.name || '');
             setIsEditingFileName(false);
         }
@@ -527,7 +532,7 @@ const Canvas = () => {
             </Container>
         );
     }
-    
+
     return (
         <Container maxWidth="xl" sx={{ mt: 4 }}>
             <Box
@@ -544,38 +549,38 @@ const Canvas = () => {
                 }}
             >
                 {filteredIdeas.length > 0 && filteredIdeas.map((idea) => {
-                const isToolModeBlocked = toolMode === 'move' || isCreatingNode;
+                    const isToolModeBlocked = toolMode === 'move' || isCreatingNode;
 
-                return (
-                    <Box 
-                        key={idea.id} 
-                        onMouseDown={(e) => !isToolModeBlocked && handleMouseDown(e, idea)}
-                        onClick={(e) => {
-                            if (isToolModeBlocked) return;
-                            e.stopPropagation();
-                            setSelectedNoteId(null);
-                            setSelectedNodeId(prevId => prevId === idea.id ? null : idea.id);
-                        }}
-                        onDoubleClick={(e) => {
-                            if (isToolModeBlocked) return;
-                            handleNodeDoubleClick(e, idea);
-                        }}
-                        sx={{ 
-                            border: `2px solid ${idea.id === selectedNodeId ? 'blue' : 'black'}`, 
-                            cursor: toolMode === 'move' ? 'grab' : (selectedNodeId === idea.id ? 'grab' : 'pointer'),
-                            position: 'absolute',
-                            transform: `translate(${idea.posX + canvasOffset.x}px, ${idea.posY + canvasOffset.y}px)`,
-                        }}
-                    >
-                        <Typography variant="h6">{idea.title}</Typography>
-                        <Typography variant="body2">{idea.description}</Typography>
-                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
-                            {idea.tags && idea.tags.map((tag, index) => (
-                                <Chip key={`${idea.id}-${tag}-${index}`} label={tag} size="small" sx={{ bgcolor: 'lightgray', fontSize: '10px' }} />
-                            ))}
+                    return (
+                        <Box
+                            key={idea.id}
+                            onMouseDown={(e) => !isToolModeBlocked && handleMouseDown(e, idea)}
+                            onClick={(e) => {
+                                if (isToolModeBlocked) return;
+                                e.stopPropagation();
+                                setSelectedNoteId(null);
+                                setSelectedNodeId(prevId => prevId === idea.id ? null : idea.id);
+                            }}
+                            onDoubleClick={(e) => {
+                                if (isToolModeBlocked) return;
+                                handleNodeDoubleClick(e, idea);
+                            }}
+                            sx={{
+                                border: `2px solid ${idea.id === selectedNodeId ? 'blue' : 'black'}`,
+                                cursor: toolMode === 'move' ? 'grab' : (selectedNodeId === idea.id ? 'grab' : 'pointer'),
+                                position: 'absolute',
+                                transform: `translate(${idea.posX + canvasOffset.x}px, ${idea.posY + canvasOffset.y}px)`,
+                            }}
+                        >
+                            <Typography variant="h6">{idea.title}</Typography>
+                            <Typography variant="body2">{idea.description}</Typography>
+                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 1 }}>
+                                {idea.tags && idea.tags.map((tag, index) => (
+                                    <Chip key={`${idea.id}-${tag}-${index}`} label={tag} size="small" sx={{ bgcolor: 'lightgray', fontSize: '10px' }} />
+                                ))}
+                            </Box>
                         </Box>
-                    </Box>
-                );
+                    );
                 })}
 
                 {notes.map((note) => (
@@ -611,7 +616,7 @@ const Canvas = () => {
                             onClick={(e) => {
                                 e.stopPropagation();
                                 if (toolMode === 'move') {
-                                    e.preventDefault(); 
+                                    e.preventDefault();
                                 }
                             }}
                             sx={{ width: '150px' }}
@@ -632,29 +637,29 @@ const Canvas = () => {
                 display: 'flex',
                 gap: 1
             }}>
-                <Button 
-                    variant="contained" 
+                <Button
+                    variant="contained"
                     onClick={() => setToolMode(toolMode === 'move' ? 'select' : 'move')}
                     color={toolMode === 'move' ? 'secondary' : 'primary'}
                 >
                     手のひらツール
                 </Button>
-                <Button 
-                    variant="contained" 
+                <Button
+                    variant="contained"
                     onClick={() => setToolMode(toolMode === 'createNode' ? 'select' : 'createNode')}
                     color={toolMode === 'createNode' ? 'secondary' : 'primary'}
                 >
                     アイデアノード作成ツール
                 </Button>
-                <Button 
-                    variant="contained" 
+                <Button
+                    variant="contained"
                     onClick={() => setToolMode(toolMode === 'createNote' ? 'select' : 'createNote')}
                     color={toolMode === 'createNote' ? 'secondary' : 'primary'}
                 >
                     付箋ツール
                 </Button>
             </Box>
-            
+
             <Box
                 sx={{
                     position: 'fixed',
@@ -665,9 +670,6 @@ const Canvas = () => {
                     overflow: 'visible',
                     userSelect: 'none',
                 }}
-                // 💡 ホバーイベントを削除
-                // onMouseEnter={() => setIsHovered(true)}
-                // onMouseLeave={() => setIsHovered(false)}
             >
                 {/* 💡 〇のボックス（親コンテナの中） */}
                 <Box
@@ -687,16 +689,16 @@ const Canvas = () => {
                             transform: 'scale(0.95)',
                         },
                     }}
-                    // 💡 クリックイベントを追加
                     onClick={() => setIsMenuOpen(!isMenuOpen)}
                 >
-                    <Typography 
-                        variant="h6" 
-                        sx={{ color: isMenuOpen ? 'white' : 'inherit',
-                              userSelect: 'none', 
-                            }}
+                    <Typography
+                        variant="h6"
+                        sx={{
+                            color: isMenuOpen ? 'white' : 'inherit',
+                            userSelect: 'none',
+                        }}
                     >
-                    〇
+                        〇
                     </Typography>
                 </Box>
 
@@ -720,9 +722,9 @@ const Canvas = () => {
                         height: 'auto',
                     }}>
                         {/* ... (ボタン群のコード) ... */}
-                        <Button 
-                            variant="contained" 
-                            onClick={handleMenuClick} 
+                        <Button
+                            variant="contained"
+                            onClick={handleMenuClick}
                             color={isMenuOpen ? 'primary' : 'inherit'}
                         >
                             キャンバス
@@ -747,8 +749,8 @@ const Canvas = () => {
                             </MenuItem>
                             {userFiles.length > 0 ? (
                                 userFiles.map((file) => (
-                                    <MenuItem 
-                                        key={file.id} 
+                                    <MenuItem
+                                        key={file.id}
                                         onClick={() => handleFileSelect(file.id)}
                                     >
                                         {file.name}
@@ -758,16 +760,16 @@ const Canvas = () => {
                                 <MenuItem onClick={handleMenuClose}>ファイルがありません</MenuItem>
                             )}
                         </Menu>
-                        <Button 
-                            variant="contained" 
-                            onClick={() => setIsNodeListModalOpen(true)} 
+                        <Button
+                            variant="contained"
+                            onClick={() => setIsNodeListModalOpen(true)}
                             color={isMenuOpen ? 'primary' : 'inherit'}
                         >
                             ノード一覧
                         </Button>
-                        <Button 
-                            variant="contained" 
-                            onClick={handleGoToPrompt} 
+                        <Button
+                            variant="contained"
+                            onClick={handleGoToPrompt}
                             color={isMenuOpen ? 'primary' : 'inherit'}
                         >
                             プロンプト作成
@@ -791,35 +793,35 @@ const Canvas = () => {
                 }}
             >
                 {isEditingFileName ? (
-                <TextField
-                    value={currentFileName}
-                    onChange={(e) => setCurrentFileName(e.target.value)}
-                    onBlur={handleSaveFileName}
-                    onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                            handleSaveFileName();
-                        }
-                    }}
-                    autoFocus
-                    size="small"
-                />
-            ) : (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="h6" onClick={() => setIsEditingFileName(true)}>
-                        {currentFileName}
-                    </Typography>
-                    <IconButton onClick={() => setIsEditingFileName(true)} size="small">
-                        <CreateIcon />
-                    </IconButton>
-                </Box>
-            )}
+                    <TextField
+                        value={currentFileName}
+                        onChange={(e) => setCurrentFileName(e.target.value)}
+                        onBlur={handleSaveFileName}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                handleSaveFileName();
+                            }
+                        }}
+                        autoFocus
+                        size="small"
+                    />
+                ) : (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="h6" onClick={() => setIsEditingFileName(true)}>
+                            {currentFileName}
+                        </Typography>
+                        <IconButton onClick={() => setIsEditingFileName(true)} size="small">
+                            <CreateIcon />
+                        </IconButton>
+                    </Box>
+                )}
             </Box>
 
             <Box sx={{
                 position: 'fixed',
                 top: '20px',
                 right: '20px',
-                zIndex: 1000 
+                zIndex: 1000
             }}>
                 <Button variant="contained" onClick={handleLogout}>
                     ログアウト
@@ -909,12 +911,13 @@ const Canvas = () => {
                     borderRadius: '8px',
                     overflowY: 'auto'
                 }}>
-                    <NodeListPage 
-                        ideas={ideas} 
+                    <NodeListPage
+                        ideas={ideas}
+                        allTags={allTags}
                         onSelectIdea={(ideaId) => {
                             setSelectedNodeId(ideaId);
                             setIsNodeListModalOpen(false);
-                        }} 
+                        }}
                     />
                     <Button onClick={handleCloseNodeListModal} sx={{ mt: 2 }}>
                         閉じる

@@ -1,71 +1,105 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom'; // 💡 useLocation, useNavigateを削除
-import { Container, Typography, Box, CircularProgress, List, ListItem, ListItemText, Divider } from '@mui/material'; // 💡 Buttonを削除
-import axios from 'axios';
+import { Box, Typography, List, ListItem, ListItemText, Chip, TextField, Grid } from '@mui/material';
 
-// 💡 ユーザーIDとファイルIDをpropsとして受け取る
-const NodeListPage = ({ userId, fileId }) => {
-    const [nodes, setNodes] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+const NodeListPage = ({ ideas, allTags, onSelectIdea }) => {
+    const [searchQuery, setSearchQuery] = useState('');
+    const [filteredIdeas, setFilteredIdeas] = useState(ideas);
+    const [selectedTags, setSelectedTags] = useState([]);
 
     useEffect(() => {
-        const fetchNodes = async () => {
-            if (!userId) {
-                // ...
-                return;
-            }
+        let currentFilteredIdeas = ideas;
 
-            try {
-                // ... 既存のAPI呼び出しロジックはそのまま ...
-            } catch (err) {
-                // ...
-            } finally {
-                setLoading(false);
-            }
-        };
+        // 💡 検索クエリによるフィルタリング
+        if (searchQuery) {
+            currentFilteredIdeas = currentFilteredIdeas.filter(idea =>
+                idea.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                idea.description.toLowerCase().includes(searchQuery.toLowerCase())
+            );
+        }
 
-        fetchNodes();
-    }, [fileId, userId]);
+        // 💡 タグによるフィルタリング
+        if (selectedTags.length > 0) {
+            currentFilteredIdeas = currentFilteredIdeas.filter(idea =>
+                idea.tags && idea.tags.some(tag => selectedTags.includes(tag))
+            );
+        }
 
-    // 💡 戻るボタンのロジックを削除
+        setFilteredIdeas(currentFilteredIdeas);
+    }, [ideas, searchQuery, selectedTags]);
 
-    if (loading) {
-        // ...
-    }
-
-    if (error) {
-        // ...
-    }
+    const handleTagClick = (tag) => {
+        if (selectedTags.includes(tag)) {
+            setSelectedTags(selectedTags.filter(t => t !== tag));
+        } else {
+            setSelectedTags([...selectedTags, tag]);
+        }
+    };
 
     return (
-        <Container maxWidth="md" sx={{ mt: 4 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-                <Typography variant="h4" component="h1">
-                    ノード一覧
-                </Typography>
-            </Box>
+        <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="h4" gutterBottom>
+                ノード一覧
+            </Typography>
             
-            <List sx={{ bgcolor: 'background.paper', border: '1px solid #ddd' }}>
-                {nodes.length > 0 ? (
-                    nodes.map(node => (
-                        <React.Fragment key={node.id}>
-                            <ListItem>
-                                <ListItemText 
-                                    primary={node.type === 'idea' ? node.title : `付箋: ${node.content ? node.content.substring(0, 20) + '...' : ''}`}
-                                    secondary={node.type === 'idea' ? node.description : '付箋'}
-                                />
-                            </ListItem>
-                            <Divider />
-                        </React.Fragment>
+            <TextField
+                label="検索"
+                variant="outlined"
+                fullWidth
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                sx={{ mb: 2 }}
+            />
+
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+                {allTags.map((tag) => (
+                    <Chip
+                        key={tag}
+                        label={tag}
+                        onClick={() => handleTagClick(tag)}
+                        color={selectedTags.includes(tag) ? 'primary' : 'default'}
+                        variant={selectedTags.includes(tag) ? 'filled' : 'outlined'}
+                    />
+                ))}
+            </Box>
+
+            <List sx={{ flexGrow: 1, overflowY: 'auto' }}>
+                {filteredIdeas.length > 0 ? (
+                    filteredIdeas.map((idea) => (
+                        <ListItem
+                            key={idea.id}
+                            button
+                            onClick={() => onSelectIdea(idea.id)}
+                            sx={{ borderBottom: '1px solid #eee' }}
+                        >
+                            <Grid container spacing={2}>
+                                <Grid item xs={12}>
+                                    <ListItemText
+                                        primary={idea.title}
+                                        secondary={idea.description}
+                                    />
+                                </Grid>
+                                <Grid item xs={12}>
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                                        {idea.tags && idea.tags.map((tag) => (
+                                            <Chip
+                                                key={tag}
+                                                label={tag}
+                                                size="small"
+                                                sx={{ bgcolor: 'lightgray', fontSize: '10px' }}
+                                            />
+                                        ))}
+                                    </Box>
+                                </Grid>
+                            </Grid>
+                        </ListItem>
                     ))
                 ) : (
-                    <ListItem>
-                        <ListItemText primary="ノードはありません" />
-                    </ListItem>
+                    <Typography sx={{ p: 2, textAlign: 'center' }}>
+                        ノードが見つかりません。
+                    </Typography>
                 )}
             </List>
-        </Container>
+        </Box>
     );
 };
 
