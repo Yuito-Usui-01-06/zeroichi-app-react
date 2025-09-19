@@ -1,14 +1,14 @@
 // src/pages/NewsPage.js
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useLocation, useNavigate } from 'react-router-dom'; // 💡 useNavigateを追加
+import { useParams, useLocation, useNavigate } from 'react-router-dom';
 import { Container, Typography, Box, CircularProgress, Button, List, ListItem, ListItemText, Snackbar, Alert, Grid, Link } from '@mui/material';
 import axios from 'axios';
 
 const NewsPage = () => {
     const { fileId } = useParams();
     const location = useLocation();
-    const navigate = useNavigate(); // 💡 useNavigateフックを呼び出す
+    const navigate = useNavigate();
     const userId = location.state?.userId;
 
     const [news, setNews] = useState([]);
@@ -18,21 +18,23 @@ const NewsPage = () => {
     const [snackbarMessage, setSnackbarMessage] = useState('');
     const [snackbarSeverity, setSnackbarSeverity] = useState('success');
 
+    // 💡 ニュースデータを取得する関数を独立させる
+    const fetchNews = async () => {
+        try {
+            setLoading(true);
+            const response = await axios.get('http://localhost:8080/api/news');
+            const newsData = response.data.results;
+            setNews(newsData);
+        } catch (err) {
+            setError('ニュースの取得に失敗しました。');
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+    
+    // 💡 コンポーネントの初回マウント時にニュースを取得
     useEffect(() => {
-        const fetchNews = async () => {
-            try {
-                setLoading(true);
-                const response = await axios.get('http://localhost:8080/api/news');
-                const newsData = response.data.results;
-                setNews(newsData);
-            } catch (err) {
-                setError('ニュースの取得に失敗しました。');
-                console.error(err);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchNews();
     }, []);
 
@@ -43,23 +45,30 @@ const NewsPage = () => {
             userId: userId,
             fileId: fileId,
             nodeType: 'NEWS',
+            tags: ['News'],
             posX: Math.random() * 200,
             posY: Math.random() * 200,
-            tags: ['News'],
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         };
 
         try {
-            await axios.post('http://localhost:8080/api/ideas', newIdea);
-            setSnackbarMessage('ノードが正常に作成されました！');
-            setSnackbarSeverity('success');
+            const response = await axios.post('http://localhost:8080/api/ideas', newIdea);
+            const createdNode = response.data;
+            
+            navigate(`/canvas/${fileId}`, {
+                state: {
+                    userId: userId,
+                    fileId: fileId,
+                    newNode: createdNode
+                }
+            });
+            
         } catch (err) {
             setSnackbarMessage('ノードの作成に失敗しました。');
             setSnackbarSeverity('error');
-            console.error(err);
-        } finally {
             setSnackbarOpen(true);
+            console.error(err);
         }
     };
 
@@ -67,9 +76,8 @@ const NewsPage = () => {
         setSnackbarOpen(false);
     };
 
-    // 💡 戻るボタンのハンドラー関数
     const handleGoBack = () => {
-        navigate(-1); // 💡 一つ前の履歴に戻る
+        navigate(-1);
     };
 
     if (loading) {
@@ -94,8 +102,7 @@ const NewsPage = () => {
     }
 
     return (
-        <Container maxWidth="md" sx={{ mt: 4 }}>
-            {/* 💡 戻るボタンを追加 */}
+        <Container maxWidth="md" sx={{ mt: 4, mb: 10 }}>
             <Box sx={{
                 position: 'fixed',
                 top: '20px',
@@ -113,9 +120,19 @@ const NewsPage = () => {
                 <Typography variant="body1" color="text.secondary">
                     最新のニュースから、アイデアのノードを作成できます。
                 </Typography>
+                {/* 💡 更新ボタンを追加 */}
+                <Button variant="contained" onClick={fetchNews} sx={{ mt: 2 }}>
+                    ニュースを更新
+                </Button>
             </Box>
-            <List>
-                {news.map((item) => (
+            <Box sx={{ 
+                p: 2, // パディングを追加
+                border: '1px solid #ddd', // ボーダーを追加
+                borderRadius: '8px' // 角を丸くする
+            }}>
+                <List>
+                {/* 💡 ニュースを3つに限定して表示 */}
+                {news.slice(0, 3).map((item) => (
                     <ListItem key={item.article_id} sx={{ borderBottom: '1px solid #eee', py: 2 }}>
                         <Grid container alignItems="center" spacing={2}>
                             <Grid item xs={12} sm={9}>
@@ -135,7 +152,8 @@ const NewsPage = () => {
                         </Grid>
                     </ListItem>
                 ))}
-            </List>
+                </List>
+            </Box>
             <Snackbar open={snackbarOpen} autoHideDuration={6000} onClose={handleSnackbarClose}>
                 <Alert onClose={handleSnackbarClose} severity={snackbarSeverity} sx={{ width: '100%' }}>
                     {snackbarMessage}

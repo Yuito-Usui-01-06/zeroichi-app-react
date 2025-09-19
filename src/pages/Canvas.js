@@ -50,6 +50,9 @@ const Canvas = () => {
     const [isEditingFileName, setIsEditingFileName] = useState(false);
     const [currentFileName, setCurrentFileName] = useState('');
 
+    const newNodeFromNews = location.state?.newNodeFromNews;
+    const nodeCreatedFromNews = location.state?.nodeCreated;
+
     // 💡 ファイル名を取得するための関数を追加
     const fetchFileName = async (id) => {
         try {
@@ -68,19 +71,32 @@ const Canvas = () => {
                 setLoading(false);
                 return;
             }
-            if (!fileId) { // 💡 fileIdがまだない場合は何もしない
+            if (!fileId) {
                 setLoading(false);
+                setCurrentFileName('新しいキャンバス');
                 return;
             }
+
             try {
-                // 💡 ファイル名を取得
                 await fetchFileName(fileId);
-
                 const ideasResponse = await axios.get(`http://localhost:8080/api/ideas/file/${fileId}`);
-                setIdeas(ideasResponse.data);
-
                 const notesResponse = await axios.get(`http://localhost:8080/api/notes/file/${fileId}`);
+                
+                setIdeas(ideasResponse.data);
                 setNotes(notesResponse.data);
+
+                // 💡 News画面から渡された新規ノード情報を取得
+                const newNode = location.state?.newNode;
+
+                if (newNode) {
+                    // 💡 新規ノードを編集状態に設定し、モーダルを表示
+                    setEditingIdea({ ...newNode, tags: newNode.tags || [] });
+                    setIsModalOpen(true);
+                    
+                    // 履歴のstateをクリア
+                    navigate(`/canvas/${fileId}`, { replace: true, state: { userId: userId, fileId: fileId } });
+                }
+
             } catch (err) {
                 setError("データの取得に失敗しました。");
                 console.error(err);
@@ -90,7 +106,46 @@ const Canvas = () => {
         };
 
         fetchData();
-    }, [fileId, userId]); // 💡 fileIdとuserIdを依存配列に追加
+    }, [fileId, userId, location.state, navigate]); // 💡 fileIdとuserIdを依存配列に追加
+
+    useEffect(() => {
+        if (newNodeFromNews) {
+            const createAndEditNode = async () => {
+                try {
+                    // 💡 新規ノードをサーバーに登録
+                    const response = await axios.post('http://localhost:8080/api/ideas', {
+                        ...newNodeFromNews,
+                        posX: Math.random() * 200,
+                        posY: Math.random() * 200,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString()
+                    });
+                    
+                    const newIdea = response.data;
+                    setIdeas([...ideas, newIdea]);
+                    
+                    // 💡 作成したノードを編集状態に設定
+                    setEditingIdea({ ...newIdea, tags: newIdea.tags || [] });
+                    setIsModalOpen(true);
+                } catch (err) {
+                    console.error('ノード作成エラー:', err);
+                    // エラーハンドリング
+                }
+            };
+            createAndEditNode();
+
+            // 💡 stateをリセットして、再読み込み時にモーダルが再度表示されるのを防ぐ
+            navigate(`/canvas/${fileId}`, { replace: true, state: { userId: userId, fileId: fileId } });
+        }
+    }, [newNodeFromNews]);
+
+    useEffect(() => {
+        if (nodeCreatedFromNews) {
+            // ここで追加したノードの編集モーダルを開くなど、
+            // 追加のロジックを実装することができます。
+            // 例: alert('新しいノードが追加されました');
+        }
+    }, [nodeCreatedFromNews]);
 
     useEffect(() => {
         const fetchAllTags = () => {
@@ -534,23 +589,29 @@ const Canvas = () => {
     }
 
     return (
-        <Container maxWidth="xl" sx={{ mt: 4 }}>
+        <Box sx={{
+            height: '100vh',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+        }}>
+    
             <Box
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onClick={handleCanvasClick}
                 sx={{
-                    width: '100%',
-                    height: '100vh',
+                    flexGrow: 1,
                     position: 'relative',
                     overflow: 'hidden',
                     cursor: isCreatingNode ? 'crosshair' : (toolMode === 'move' ? (isDraggingCanvas ? 'grabbing' : 'grab') : 'default')
                 }}
             >
+                {/* ノードと付箋のレンダリング */}
                 {filteredIdeas.length > 0 && filteredIdeas.map((idea) => {
                     const isToolModeBlocked = toolMode === 'move' || isCreatingNode;
-
+    
                     return (
                         <Box
                             key={idea.id}
@@ -582,7 +643,7 @@ const Canvas = () => {
                         </Box>
                     );
                 })}
-
+    
                 {notes.map((note) => (
                     <Box
                         key={note.id}
@@ -624,7 +685,7 @@ const Canvas = () => {
                     </Box>
                 ))}
             </Box>
-
+    
             <Box sx={{
                 position: 'fixed',
                 bottom: '20px',
@@ -659,7 +720,7 @@ const Canvas = () => {
                     付箋ツール
                 </Button>
             </Box>
-
+    
             <Box
                 sx={{
                     position: 'fixed',
@@ -671,7 +732,6 @@ const Canvas = () => {
                     userSelect: 'none',
                 }}
             >
-                {/* 💡 〇のボックス（親コンテナの中） */}
                 <Box
                     sx={{
                         bgcolor: isMenuOpen ? 'primary.main' : 'background.paper',
@@ -701,8 +761,7 @@ const Canvas = () => {
                         〇
                     </Typography>
                 </Box>
-
-                {/* 💡 isMenuOpenがtrueの時だけボタン群を表示 */}
+    
                 {isMenuOpen && (
                     <Box sx={{
                         position: 'absolute',
@@ -721,7 +780,6 @@ const Canvas = () => {
                         width: '180px',
                         height: 'auto',
                     }}>
-                        {/* ... (ボタン群のコード) ... */}
                         <Button
                             variant="contained"
                             onClick={handleMenuClick}
@@ -739,7 +797,6 @@ const Canvas = () => {
                                 }
                             }}
                         >
-                            {/* 💡 新規作成項目を追加 */}
                             <MenuItem onClick={() => {
                                 handleMenuClose();
                                 setIsCreateModalOpen(true);
@@ -774,16 +831,21 @@ const Canvas = () => {
                         >
                             News
                         </Button>
+                        <Button 
+                            variant="contained" 
+                            onClick={handleLogout}
+                        >                           
+                            ログアウト
+                        </Button>
                     </Box>
                 )}
             </Box>
-
-            {/* 💡 ファイル名表示/編集エリア */}
+    
             <Box
                 sx={{
                     position: 'fixed',
                     top: '15px',
-                    left: '80px', // 💡 ボタン群の右側に配置
+                    left: '80px',
                     zIndex: 100,
                     p: 1,
                     bgcolor: 'background.paper',
@@ -816,18 +878,7 @@ const Canvas = () => {
                     </Box>
                 )}
             </Box>
-
-            <Box sx={{
-                position: 'fixed',
-                top: '20px',
-                right: '20px',
-                zIndex: 1000
-            }}>
-                <Button variant="contained" onClick={handleLogout}>
-                    ログアウト
-                </Button>
-            </Box>
-
+    
             <Modal
                 open={isModalOpen}
                 onClose={handleCloseModal}
@@ -895,8 +946,7 @@ const Canvas = () => {
                     )}
                 </Box>
             </Modal>
-
-            {/* ノード一覧用のモーダル */}
+    
             <Modal
                 open={isNodeListModalOpen}
                 onClose={handleCloseNodeListModal}
@@ -924,7 +974,7 @@ const Canvas = () => {
                     </Button>
                 </Box>
             </Modal>
-
+    
             <Modal
                 open={isCreateModalOpen}
                 onClose={() => setIsCreateModalOpen(false)}
@@ -959,7 +1009,7 @@ const Canvas = () => {
                     </Button>
                 </Box>
             </Modal>
-        </Container>
+        </Box>
     );
 };
 
