@@ -10,7 +10,7 @@ const Canvas = () => {
     const { fileId } = useParams();
     const location = useLocation();
     const navigate = useNavigate();
-    const userId = location.state?.userId;
+    const userId = localStorage.getItem('userId') || localStorage.getItem('tempUserId');
 
     const [ideas, setIdeas] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -62,6 +62,11 @@ const Canvas = () => {
             console.error('ファイル名の取得エラー:', error);
         }
     };
+
+    // 💡 tempUserIdは一度使用したら削除する
+    useEffect(() => {
+        localStorage.removeItem('tempUserId');
+    }, []);
     
     // 💡 fileIdまたはuserIdが変更されたときにデータを取得
     useEffect(() => {

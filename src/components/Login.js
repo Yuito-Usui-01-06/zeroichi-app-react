@@ -42,31 +42,37 @@ const Login = () => {
       try {
         const response = await axios.post('http://localhost:8080/api/login', { username, password });
         const loggedInUser = response.data;
-        const userId = loggedInUser.userId;
+        
+        // 💡 ユーザーIDとロールをローカルストレージに保存
+        localStorage.setItem('userId', loggedInUser.userId);
+        localStorage.setItem('userRole', loggedInUser.role);
 
-        // 💡 ログイン成功後、既存のファイルをチェックするAPIを呼び出す
-        const filesResponse = await axios.get(`http://localhost:8080/api/files/user/${userId}`);
-        const files = filesResponse.data;
-
-        let fileId;
-        if (files.length === 0) {
-          // 💡 既存ファイルがない場合、新規ファイルを作成
-          const newFileResponse = await axios.post('http://localhost:8080/api/files', {
-            name: 'My First Canvas',
-            userId: userId
-          });
-          fileId = newFileResponse.data.id;
+        // 💡 ユーザーの役割に応じてリダイレクト先を決定
+        if (loggedInUser.role === 'ADMIN') {
+            navigate('/admin');
         } else {
-          // 💡 既存ファイルがある場合、一番古いファイルにリダイレクト
-          fileId = files[0].id;
+            // 💡 ログイン成功後、既存のファイルをチェックするAPIを呼び出す
+            const filesResponse = await axios.get(`http://localhost:8080/api/files/user/${loggedInUser.userId}`);
+            const files = filesResponse.data;
+
+            let fileId;
+            if (files.length === 0) {
+              // 💡 既存ファイルがない場合、新規ファイルを作成
+              const newFileResponse = await axios.post('http://localhost:8080/api/files', {
+                name: 'My First Canvas',
+                userId: loggedInUser.userId
+              });
+              fileId = newFileResponse.data.id;
+            } else {
+              // 💡 既存ファイルがある場合、一番古いファイルにリダイレクト
+              fileId = files[0].id;
+            }
+            navigate(`/canvas/${fileId}`, { state: { userId: loggedInUser.userId, fileId: fileId } });
         }
-
-        navigate(`/canvas/${fileId}`, { state: { userId: userId, fileId: fileId } });
-
       } catch (error) {
         console.error('ログインエラー:', error);
         if (error.response && error.response.data) {
-          alert(error.response.data);
+          alert(JSON.stringify(error.response.data));
         } else {
           alert('ログインに失敗しました。');
         }

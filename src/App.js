@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import Login from './components/Login';
 import CanvasPage from './pages/Canvas';
 import NewsPage from './pages/NewsPage';
+import AdminPage from './pages/AdminPage';
 
 const App = () => {
     return (
@@ -14,6 +15,8 @@ const App = () => {
                 <Route path="/canvas/:fileId" element={<CanvasPage />} />
                 {/* 💡 URLからuserIdを削除 */}
                 <Route path="/news/:fileId" element={<NewsPage />} />
+                {/* 💡 AdminPageへの新しいルートを追加 */}
+                <Route path="/admin" element={<AdminPage />} />
             </Routes>
         </BrowserRouter>
     );
