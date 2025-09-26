@@ -5,6 +5,7 @@ import axios from 'axios';
 import NodeListPage from './NodeListPage';
 import IconButton from '@mui/material/IconButton';
 import CreateIcon from '@mui/icons-material/Create';
+import html2canvas from 'html2canvas';
 
 const Canvas = () => {
     const { fileId } = useParams();
@@ -577,6 +578,47 @@ const Canvas = () => {
         }
     };
 
+    const handleExportAsImage = async () => {
+        // 💡 1. ユーザーにファイル名を入力させる
+        const defaultFileName = 'idea_canvas_export';
+        const fileName = prompt('ファイル名を入力してください:', defaultFileName);
+        
+        // ユーザーがキャンセルした場合や空の文字列だった場合
+        if (!fileName) {
+            return; // 処理を中断
+        }
+    
+        const input = document.getElementById('export-target'); 
+    
+        if (!input) {
+            console.error('Export target element not found.');
+            alert('エクスポート対象のキャンバスが見つかりません。');
+            return;
+        }
+    
+        try {
+            const canvas = await html2canvas(input, {
+                scale: 2, 
+                useCORS: true 
+            });
+    
+            const image = canvas.toDataURL('image/png');
+    
+            const link = document.createElement('a');
+            // 💡 2. ダウンロード時のファイル名にユーザーの入力を反映
+            link.href = image;
+            link.download = `${fileName}.png`; // 入力されたファイル名を使用
+            
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            
+        } catch (error) {
+            console.error('画像エクスポートに失敗しました:', error);
+            alert('画像エクスポート中にエラーが発生しました。');
+        }
+    };
+
     if (loading) {
         return (
             <Container maxWidth="xl" sx={{ mt: 4 }}>
@@ -602,6 +644,7 @@ const Canvas = () => {
         }}>
     
             <Box
+                id="export-target"
                 onMouseDown={handleCanvasMouseDown}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
@@ -835,6 +878,12 @@ const Canvas = () => {
                             color={isMenuOpen ? 'primary' : 'inherit'}
                         >
                             News
+                        </Button>
+                        <Button 
+                            variant="contained" 
+                            onClick={handleExportAsImage}
+                        >
+                            エクスポート
                         </Button>
                         <Button 
                             variant="contained" 
