@@ -6,6 +6,7 @@ import NodeListPage from './NodeListPage';
 import IconButton from '@mui/material/IconButton';
 import CreateIcon from '@mui/icons-material/Create';
 import html2canvas from 'html2canvas';
+import DeleteIcon from '@mui/icons-material/Delete';
 
 const Canvas = () => {
     const { fileId } = useParams();
@@ -53,6 +54,35 @@ const Canvas = () => {
 
     const newNodeFromNews = location.state?.newNodeFromNews;
     const nodeCreatedFromNews = location.state?.nodeCreated;
+
+    const handleDeleteFile = async (fileIdToDelete, fileName) => {
+        if (window.confirm(`ファイル「${fileName}」を削除しますか？この操作は取り消せません。`)) {
+            try {
+                await axios.delete(`http://localhost:8080/api/files/${fileIdToDelete}`);
+                
+                // ファイルリストを更新
+                setUserFiles(userFiles.filter(file => file.id !== fileIdToDelete));
+                
+                // 削除したファイルが現在開いているファイルの場合
+                if (fileIdToDelete.toString() === fileId) {
+                    // 最初のファイルに移動するか、ファイルがなければ新規作成モーダルを開く
+                    if (userFiles.length > 1) {
+                        const remainingFiles = userFiles.filter(file => file.id !== fileIdToDelete);
+                        navigate(`/canvas/${remainingFiles[0].id}`);
+                    } else {
+                        // ファイルがすべて削除された場合、新規作成モーダルを開く
+                        setIsCreateModalOpen(true);
+                        handleMenuClose();
+                    }
+                }
+                
+                alert('ファイルが削除されました。');
+            } catch (error) {
+                console.error('ファイル削除エラー:', error);
+                alert('ファイルの削除に失敗しました。');
+            }
+        }
+    };
 
     // 💡 ファイル名を取得するための関数を追加
     const fetchFileName = async (id) => {
@@ -842,23 +872,49 @@ const Canvas = () => {
                             PaperProps={{
                                 sx: {
                                     bgcolor: lighten(theme.palette.primary.main, 0.8),
+                                    minWidth: '250px', // メニューの最小幅を拡張
                                 }
                             }}
                         >
                             <MenuItem onClick={() => {
                                 handleMenuClose();
                                 setIsCreateModalOpen(true);
-                            }}
-                            >
+                            }}>
                                 新規作成
                             </MenuItem>
                             {userFiles.length > 0 ? (
                                 userFiles.map((file) => (
                                     <MenuItem
                                         key={file.id}
-                                        onClick={() => handleFileSelect(file.id)}
+                                        sx={{ 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center',
+                                            pr: 1 // 右パディングを調整
+                                        }}
                                     >
-                                        {file.name}
+                                        <Box 
+                                            onClick={() => handleFileSelect(file.id)}
+                                            sx={{ 
+                                                flex: 1, 
+                                                cursor: 'pointer',
+                                                overflow: 'hidden',
+                                                textOverflow: 'ellipsis',
+                                                whiteSpace: 'nowrap'
+                                            }}
+                                        >
+                                            {file.name}
+                                        </Box>
+                                        <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                                e.stopPropagation(); // ファイル選択を防ぐ
+                                                handleDeleteFile(file.id, file.name);
+                                            }}
+                                            sx={{ ml: 1 }}
+                                        >
+                                            <DeleteIcon fontSize="small" />
+                                        </IconButton>
                                     </MenuItem>
                                 ))
                             ) : (
