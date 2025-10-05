@@ -1,7 +1,5 @@
-// src/components/Login.js
-
 import React, { useState, useEffect  } from 'react';
-import { Container, TextField, Button, Typography, Box, Link } from '@mui/material';
+import { Container, TextField, Button, Typography, Box, Link, useTheme, useMediaQuery } from '@mui/material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,6 +12,8 @@ const Login = () => {
   const [passwordsMatchError, setPasswordsMatchError] = useState('');
   const passwordsMatch = password === confirmPassword;
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   useEffect(() => {
     setUsername('');
@@ -43,28 +43,23 @@ const Login = () => {
         const response = await axios.post('http://localhost:8080/api/login', { username, password });
         const loggedInUser = response.data;
         
-        // 💡 ユーザーIDとロールをローカルストレージに保存
         localStorage.setItem('userId', loggedInUser.userId);
         localStorage.setItem('userRole', loggedInUser.role);
 
-        // 💡 ユーザーの役割に応じてリダイレクト先を決定
         if (loggedInUser.role === 'ADMIN') {
             navigate('/admin');
         } else {
-            // 💡 ログイン成功後、既存のファイルをチェックするAPIを呼び出す
             const filesResponse = await axios.get(`http://localhost:8080/api/files/user/${loggedInUser.userId}`);
             const files = filesResponse.data;
 
             let fileId;
             if (files.length === 0) {
-              // 💡 既存ファイルがない場合、新規ファイルを作成
               const newFileResponse = await axios.post('http://localhost:8080/api/files', {
                 name: 'My First Canvas',
                 userId: loggedInUser.userId
               });
               fileId = newFileResponse.data.id;
             } else {
-              // 💡 既存ファイルがある場合、一番古いファイルにリダイレクト
               fileId = files[0].id;
             }
             navigate(`/canvas/${fileId}`, { state: { userId: loggedInUser.userId, fileId: fileId } });
@@ -93,8 +88,13 @@ const Login = () => {
     }
   };
 
+  const handleToggleMode = (e) => {
+    e.preventDefault();
+    setIsLogin(!isLogin);
+  };
+
   return (
-    <Container maxWidth="xs">
+    <Container maxWidth="xs" sx={{ px: { xs: 2, sm: 3 } }}>
       <Box
         sx={{
           marginTop: 8,
@@ -103,10 +103,14 @@ const Login = () => {
           alignItems: 'center',
         }}
       >
-        <Typography component="h1" variant="h5">
+        <Typography 
+          component="h1" 
+          variant="h5"
+          sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem' } }}
+        >
           {isLogin ? 'ログイン' : '新規登録'}
         </Typography>
-        <Box noValidate sx={{ mt: 1 }}>
+        <Box noValidate sx={{ mt: 1, width: '100%' }}>
           <TextField
             margin="normal"
             required
@@ -115,9 +119,14 @@ const Login = () => {
             label="ユーザー名"
             name="username"
             autoComplete="off"
-            autoFocus
+            autoFocus={!isMobile}
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            sx={{
+              '& .MuiInputBase-input': {
+                fontSize: { xs: '14px', sm: '16px' }
+              }
+            }}
           />
           <TextField
             margin="normal"
@@ -130,6 +139,11 @@ const Login = () => {
             autoComplete="off"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            sx={{
+              '& .MuiInputBase-input': {
+                fontSize: { xs: '14px', sm: '16px' }
+              }
+            }}
           />
             {!isLogin && (
                 <>
@@ -146,6 +160,11 @@ const Login = () => {
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     error={!!passwordsMatchError}
                     helperText={passwordsMatchError}
+                    sx={{
+                      '& .MuiInputBase-input': {
+                        fontSize: { xs: '14px', sm: '16px' }
+                      }
+                    }}
                     />
                     <TextField
                         margin="normal"
@@ -157,6 +176,11 @@ const Login = () => {
                         autoComplete="off"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
+                        sx={{
+                          '& .MuiInputBase-input': {
+                            fontSize: { xs: '14px', sm: '16px' }
+                          }
+                        }}
                     />
                 </>
             )}
@@ -164,14 +188,27 @@ const Login = () => {
             type="button"
             fullWidth
             variant="contained"
-            sx={{ mt: 3, mb: 2 }}
+            sx={{ 
+              mt: 3, 
+              mb: 2,
+              fontSize: { xs: '14px', sm: '15px' }
+            }}
             onClick={handleSubmit}
             disabled={!isLogin && (!passwordsMatch || !username || !email || !password || !confirmPassword)}
           >
             {isLogin ? 'ログイン' : '新規登録'}
           </Button>
           <Box display="flex" justifyContent="center">
-            <Link component="button" variant="body2" onClick={() => setIsLogin(!isLogin)}>
+            <Link 
+              component="button" 
+              variant="body2" 
+              onClick={handleToggleMode}
+              type="button"
+              sx={{
+                fontSize: { xs: '13px', sm: '14px' },
+                cursor: 'pointer'
+              }}
+            >
               {isLogin ? '新規登録はこちら' : 'ログイン画面に戻る'}
             </Link>
           </Box>
